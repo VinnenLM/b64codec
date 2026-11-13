@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>b64codec</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --panel2: #1e222b; --border: #2a2f3a;
+    --text: #e6e8ee; --muted: #8a92a3; --accent: #5b8cff; --accent-h: #7aa2ff;
+    --ok: #3ecf8e; --err: #ff6b6b;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f5f6f8; --panel: #ffffff; --panel2: #f0f2f6; --border: #dde1e8;
+      --text: #1b1f27; --muted: #667085; --accent: #3b6cf0; --accent-h: #2c57cc;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text); display: flex;
+  }
+  aside {
+    width: 240px; flex-shrink: 0; background: var(--panel);
+    border-right: 1px solid var(--border); display: flex; flex-direction: column;
+    padding: 20px 12px; gap: 4px;
+  }
+  .brand { font-weight: 700; font-size: 20px; padding: 4px 12px 16px; letter-spacing: .3px; }
+  .brand span { color: var(--accent); }
+  .group { font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--muted); padding: 14px 12px 6px; }
+  nav button {
+    all: unset; cursor: pointer; display: block; width: 100%;
+    padding: 10px 12px; border-radius: 8px; color: var(--muted); font-size: 14px;
+  }
+  nav button:hover { background: var(--panel2); color: var(--text); }
+  nav button.active { background: var(--accent); color: #fff; }
+  nav button:focus-visible { outline: 2px solid var(--accent-h); }
+  .foot { margin-top: auto; font-size: 12px; color: var(--muted); padding: 12px; line-height: 1.4; }
+  main { flex: 1; overflow: auto; padding: 32px; }
+  .view { display: none; max-width: 820px; margin: 0 auto; }
+  .view.active { display: block; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  p.sub { color: var(--muted); margin: 0 0 20px; font-size: 14px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 16px 0 6px; }
+  textarea, input[type=text] {
+    width: 100%; background: var(--panel); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px; padding: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px;
+    resize: vertical; min-height: 140px;
+  }
+  textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+  .btn {
+    cursor: pointer; border: 1px solid var(--border); background: var(--panel2);
+    color: var(--text); padding: 9px 16px; border-radius: 8px; font-size: 14px;
+  }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { background: var(--accent-h); }
+  .chk { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); margin: 0; }
+  .status { font-size: 13px; min-height: 18px; margin-top: 10px; }
+  .status.ok { color: var(--ok); } .status.err { color: var(--err); }
+  .drop {
+    border: 2px dashed var(--border); border-radius: 12px; padding: 36px 16px;
+    text-align: center; color: var(--muted); cursor: pointer; background: var(--panel);
+    transition: .15s;
+  }
+  .drop.over, .drop:hover { border-color: var(--accent); color: var(--text); }
+  .preview {
+    margin-top: 16px; background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px; text-align: center; display: none;
+  }
+  .preview img { max-width: 100%; max-height: 360px; border-radius: 6px;
+    background: repeating-conic-gradient(#8883 0 25%, transparent 0 50%) 0 0/16px 16px; }
+  .meta { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  @media (max-width: 720px) {
+    body { flex-direction: column; }
+    aside { width: 100%; flex-direction: row; flex-wrap: wrap; padding: 8px; border-right: 0;
+      border-bottom: 1px solid var(--border); }
+    .brand, .group, .foot { display: none; }
+    nav { display: flex; flex-wrap: wrap; gap: 4px; }
+    nav button { width: auto; }
+    main { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<aside>
+  <div class="brand">b64<span>codec</span></div>
+  <nav>
+    <div class="group">Texto</div>
+    <button data-view="text-enc" class="active">Encode texto</button>
+    <button data-view="text-dec">Decode texto</button>
+    <div class="group">Imagem</div>
+    <button data-view="img-enc">Encode imagem</button>
+    <button data-view="img-dec">Decode imagem</button>
+  </nav>
+  <div class="foot">Tudo roda no seu navegador. Nada é enviado para servidor.</div>
+</aside>
+
+<main>
+  <!-- TEXTO ENCODE -->
+  <section id="text-enc" class="view active">
+    <h1>Texto → Base64</h1>
+    <p class="sub">Suporta acentos e emojis (UTF-8).</p>
+    <label for="te-in">Texto</label>
+    <textarea id="te-in" placeholder="Digite ou cole o texto..."></textarea>
+    <div class="row">
+      <button class="btn primary" id="te-run">Encode</button>
+      <label class="chk"><input type="checkbox" id="te-url"> URL-safe</label>
+      <label class="chk"><input type="checkbox" id="te-pad" checked> Padding (=)</label>
+    </div>
+    <label for="te-out">Resultado</label>
+    <textarea id="te-out" readonly></textarea>
+    <div class="row">
+      <button class="btn" data-copy="te-out">Copiar</button>
+      <button class="btn" data-clear="te-in,te-out">Limpar</button>
+    </div>
+    <div class="status" id="te-st"></div>
+  </section>
+
+  <!-- TEXTO DECODE -->
+  <section id="text-dec" class="view">
+    <h1>Base64 → Texto</h1>
+    <p class="sub">Aceita Base64 padrão e URL-safe, com ou sem padding.</p>
+    <label for="td-in">Base64</label>
+    <textarea id="td-in" placeholder="Cole o Base64..."></textarea>
+    <div class="row"><button class="btn primary" id="td-run">Decode</button></div>
+    <label for="td-out">Resultado</label>
+    <textarea id="td-out" readonly></textarea>
+    <div class="row">
+      <button class="btn" data-copy="td-out">Copiar</button>
+      <button class="btn" data-clear="td-in,td-out">Limpar</button>
+    </div>
+    <div class="status" id="td-st"></div>
+  </section>
+
+  <!-- IMAGEM ENCODE -->
+  <section id="img-enc" class="view">
+    <h1>Imagem → Base64</h1>
+    <p class="sub">Arraste uma imagem ou clique para escolher.</p>
+    <div class="drop" id="ie-drop">Solte a imagem aqui ou clique para selecionar</div>
+    <input type="file" id="ie-file" accept="image/*" hidden>
+    <div class="preview" id="ie-prev"><img id="ie-img" alt="Pré-visualização"><div class="meta" id="ie-meta"></div></div>
+    <div class="row">
+      <label class="chk"><input type="checkbox" id="ie-uri" checked> Incluir prefixo data URI (data:image/...;base64,)</label>
+    </div>
+    <label for="ie-out">Resultado</label>
+    <textarea id="ie-out" readonly></textarea>
+    <div class="row">
+      <button class="btn" data-copy="ie-out">Copiar</button>
+      <button class="btn" id="ie-clear">Limpar</button>
+    </div>
+    <div class="status" id="ie-st"></div>
+  </section>
+
+  <!-- IMAGEM DECODE -->
+  <section id="img-dec" class="view">
+    <h1>Base64 → Imagem</h1>
+    <p class="sub">Cole o Base64 (com ou sem prefixo data:). O formato é detectado automaticamente.</p>
+    <label for="id-in">Base64</label>
+    <textarea id="id-in" placeholder="data:image/png;base64,iVBORw0KGgo..."></textarea>
+    <div class="row">
+      <button class="btn primary" id="id-run">Converter</button>
+      <button class="btn" id="id-dl" disabled>Baixar imagem</button>
+      <button class="btn" data-clear="id-in">Limpar</button>
+    </div>
+    <div class="preview" id="id-prev"><img id="id-img" alt="Imagem decodificada"><div class="meta" id="id-meta"></div></div>
+    <div class="status" id="id-st"></div>
+  </section>
+</main>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+
+  /* ---------- navegação ---------- */
+  const buttons = document.querySelectorAll("nav button");
+  function show(id) {
+    document.querySelectorAll(".view").forEach(v => v.classList.toggle("active", v.id === id));
+    buttons.forEach(b => b.classList.toggle("active", b.dataset.view === id));
+    history.replaceState(null, "", "#" + id);
+  }
+  buttons.forEach(b => b.addEventListener("click", () => show(b.dataset.view)));
+  const initial = location.hash.slice(1);
+  if (initial && $(initial)) show(initial);
+
+  /* ---------- utilidades ---------- */
+  function status(id, msg, ok = true) {
+    const el = $(id); el.textContent = msg; el.className = "status " + (ok ? "ok" : "err");
+  }
+  function bytesToB64(bytes) {
+    let bin = ""; const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk)
+      bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    return btoa(bin);
+  }
+  function b64ToBytes(b64) {
+    b64 = b64.replace(/\s+/g, "").replace(/-/g, "+").replace(/_/g, "/");
+    while (b64.length % 4) b64 += "=";
+    const bin = atob(b64);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+  function fmtSize(n) {
+    return n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(1) + " KB" : (n / 1048576).toFixed(2) + " MB";
+  }
+
+  document.addEventListener("click", async e => {
+    const c = e.target.closest("[data-copy]");
+    if (c) {
+      const el = $(c.dataset.copy);
+      try { await navigator.clipboard.writeText(el.value); }
+      catch { el.select(); document.execCommand("copy"); }
+      const old = c.textContent; c.textContent = "Copiado!";
+      setTimeout(() => c.textContent = old, 1200);
+    }
+    const x = e.target.closest("[data-clear]");
+    if (x) x.dataset.clear.split(",").forEach(id => $(id).value = "");
+  });
+
+  /* ---------- texto encode ---------- */
+  $("te-run").addEventListener("click", () => {
+    try {
+      let out = bytesToB64(new TextEncoder().encode($("te-in").value));
+      if ($("te-url").checked) out = out.replace(/\+/g, "-").replace(/\//g, "_");
+      if (!$("te-pad").checked) out = out.replace(/=+$/, "");
+      $("te-out").value = out;
+      status("te-st", `${out.length} caracteres gerados.`);
+    } catch (err) { status("te-st", "Erro: " + err.message, false); }
+  });
+
+  /* ---------- texto decode ---------- */
+  $("td-run").addEventListener("click", () => {
+    try {
+      const bytes = b64ToBytes($("td-in").value);
+      $("td-out").value = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+      status("td-st", `${bytes.length} bytes decodificados.`);
+    } catch (err) {
+      $("td-out").value = "";
+      status("td-st", "Base64 inválido ou conteúdo não é texto UTF-8 (pode ser binário/imagem).", false);
+    }
+  });
+
+  /* ---------- imagem encode ---------- */
+  const drop = $("ie-drop"), file = $("ie-file");
+  let ieB64 = "", ieMime = "";
+  function renderIe() {
+    $("ie-out").value = ieB64 ? ($("ie-uri").checked ? `data:${ieMime};base64,` : "") + ieB64 : "";
+  }
+  function handleImage(f) {
+    if (!f) return;
+    if (!f.type.startsWith("image/")) return status("ie-st", "O arquivo não é uma imagem.", false);
+    const r = new FileReader();
+    r.onload = () => {
+      const uri = r.result;
+      ieMime = f.type; ieB64 = uri.slice(uri.indexOf(",") + 1);
+      $("ie-img").src = uri;
+      $("ie-meta").textContent = `${f.name} · ${f.type} · ${fmtSize(f.size)}`;
+      $("ie-prev").style.display = "block";
+      renderIe();
+      status("ie-st", `Base64 com ${fmtSize(ieB64.length)} (~33% maior que o original).`);
+    };
+    r.onerror = () => status("ie-st", "Falha ao ler o arquivo.", false);
+    r.readAsDataURL(f);
+  }
+  drop.addEventListener("click", () => file.click());
+  file.addEventListener("change", () => handleImage(file.files[0]));
+  ["dragenter", "dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+  ["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+  drop.addEventListener("drop", e => handleImage(e.dataTransfer.files[0]));
+  $("ie-uri").addEventListener("change", renderIe);
+  $("ie-clear").addEventListener("click", () => {
+    ieB64 = ""; ieMime = ""; file.value = ""; renderIe();
+    $("ie-prev").style.display = "none"; status("ie-st", "");
+  });
+
+  /* ---------- imagem decode ---------- */
+  function sniffMime(b) {
+    const h = (...a) => a.every((v, i) => b[i] === v);
+    if (h(0x89, 0x50, 0x4e, 0x47)) return "image/png";
+    if (h(0xff, 0xd8, 0xff)) return "image/jpeg";
+    if (h(0x47, 0x49, 0x46, 0x38)) return "image/gif";
+    if (h(0x52, 0x49, 0x46, 0x46) && b[8] === 0x57 && b[9] === 0x45) return "image/webp";
+    if (h(0x42, 0x4d)) return "image/bmp";
+    if (h(0x00, 0x00, 0x01, 0x00)) return "image/x-icon";
+    const head = new TextDecoder().decode(b.subarray(0, 256)).trimStart();
+    if (head.startsWith("<svg") || head.startsWith("<?xml")) return "image/svg+xml";
+    return null;
+  }
+  const EXT = { "image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/webp": "webp",
+    "image/bmp": "bmp", "image/x-icon": "ico", "image/svg+xml": "svg" };
+  let idUrl = "", idExt = "png";
+
+  $("id-run").addEventListener("click", () => {
+    try {
+      let raw = $("id-in").value.trim(), declared = null;
+      const m = raw.match(/^data:([^;,]+)?(;base64)?,/i);
+      if (m) { declared = m[1] || null; raw = raw.slice(m[0].length); }
+      const bytes = b64ToBytes(raw);
+      const mime = sniffMime(bytes) || declared;
+      if (!mime || !mime.startsWith("image/")) throw new Error("Não foi possível identificar uma imagem.");
+      if (idUrl) URL.revokeObjectURL(idUrl);
+      idUrl = URL.createObjectURL(new Blob([bytes], { type: mime }));
+      idExt = EXT[mime] || "img";
+      $("id-img").src = idUrl;
+      $("id-meta").textContent = `${mime} · ${fmtSize(bytes.length)}`;
+      $("id-prev").style.display = "block";
+      $("id-dl").disabled = false;
+      status("id-st", "Imagem decodificada.");
+    } catch (err) {
+      $("id-prev").style.display = "none"; $("id-dl").disabled = true;
+      status("id-st", "Base64 inválido ou não é uma imagem. " + (err.message || ""), false);
+    }
+  });
+  $("id-img").addEventListener("error", () => status("id-st", "Os bytes foram decodificados, mas a imagem está corrompida.", false));
+  $("id-dl").addEventListener("click", () => {
+    const a = document.createElement("a"); a.href = idUrl; a.download = `imagem.${idExt}`; a.click();
+  });
+})();
+</script>
+</body>
+</html>
